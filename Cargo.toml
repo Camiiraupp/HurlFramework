@@ -1,0 +1,6 @@
+[workspace]
+members =[
+    "packages/hurl",
+    "packages/hurlfmt",
+    "packages/hurl_core",
+]

@@ -1,0 +1,12 @@
+*.swp
+*.swo
+*.pyc
+.mypy_cache/
+
+target/
+.idea/
+.venv/
+build/
+node_modules/
+**/npm/bin/
+integration/*.log

@@ -1,0 +1,7 @@
+error: Parsing JSON
+  --> tests_error_parser/json.hurl:2:10
+   |
+ 2 | { "name":
+   |          ^ JSON error
+   |
+

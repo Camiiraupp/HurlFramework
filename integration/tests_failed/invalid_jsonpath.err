@@ -1,0 +1,6 @@
+error: Invalid JSONPath
+  --> tests_failed/invalid_jsonpath.hurl:4:10
+   |
+ 4 | jsonpath "" equals false
+   |          ^^ the JSONPath expression '' is not valid
+   |

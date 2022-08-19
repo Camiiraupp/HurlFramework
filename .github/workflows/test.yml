@@ -1,0 +1,246 @@
+name: test
+
+on: [pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  benchsuite:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      - name: Environment
+        run: bin/environment.sh
+      - name: Install Prerequisites
+        run: bin/install_prerequisites_ubuntu.sh
+      - name: Install Rust
+        run: bin/install_rust_latest.sh
+      - name: Build
+        run: bin/release/release.sh
+      - name: Run Bench Suite
+        run: bin/test/bench.sh
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v3
+        if: ${{ always() }}
+        with:
+          name: tests-bench-artifacts
+          path: |
+            bench/server.log
+
+  test-ubuntu-x64:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rust: [stable]
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    - name: Environment
+      run: bin/environment.sh
+    - name: Install Prerequisites
+      run: bin/install_prerequisites_ubuntu.sh
+    - name: Install Rust
+      run: bin/install_rust_latest.sh
+    - name: Build
+      run: bin/release/release.sh
+    - name: Test Prerequisites
+      run: bin/test/test_prerequisites.sh
+    - name: Run Tests units
+      run: bin/test/test_unit.sh
+    - name: Run Integration Tests
+      run: bin/test/test_integ.sh
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v3
+      if: ${{ always() }}
+      with:
+        name: tests-ubuntu-${{ matrix.rust }}-artifacts
+        path: |
+          integration/server.log
+          integration/server-ssl.log
+          integration/report/tests.json
+          integration/report/tests.xml
+
+  test-docker-archlinux-x64:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3    
+    - name: Build, Test units and Integration tests
+      uses: addnab/docker-run-action@v3
+      with:
+        image: archlinux
+        options: --volume ${{ github.workspace }}:/work --workdir /work --privileged --env CARGO_TERM_COLOR=always
+        run: |
+          bin/environment.sh
+          bin/install_prerequisites_archlinux.sh
+          bin/install_rust_latest.sh
+          bin/release/release.sh
+          bin/test/test.sh
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v3
+      if: ${{ always() }}
+      with:
+        name: tests-archlinux-x64-artifacts
+        path: |
+          integration/mitmdump.log
+          integration/server.log
+          integration/server-ssl.log
+
+  test-docker-fedora-x64:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3    
+    - name: Build, Test units and Integration tests
+      uses: addnab/docker-run-action@v3
+      with:
+        image: fedora
+        options: --volume ${{ github.workspace }}:/work --workdir /work --privileged --env CARGO_TERM_COLOR=always
+        run: |
+          bin/environment.sh
+          bin/install_prerequisites_fedora.sh
+          bin/install_rust_latest.sh
+          bin/release/release.sh
+          bin/test/test.sh
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v3
+      if: ${{ always() }}
+      with:
+        name: tests-fedora-x64-artifacts
+        path: |
+          integration/mitmdump.log
+          integration/server.log
+          integration/server-ssl.log
+
+  test-docker-alpine-x64:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3    
+    - name: Build, Test units and Integration tests
+      uses: addnab/docker-run-action@v3
+      with:
+        image: alpine
+        options: --volume ${{ github.workspace }}:/work --workdir /work --privileged --env CARGO_TERM_COLOR=always --env RUSTFLAGS=-Ctarget-feature=-crt-static
+        run: |
+          bin/environment.sh
+          bin/install_prerequisites_alpine.sh
+          bin/install_rust_latest.sh
+          bin/release/release.sh
+          bin/test/test.sh
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v3
+      if: ${{ always() }}
+      with:
+        name: tests-alpine-x64-artifacts
+        path: |
+          integration/mitmdump.log
+          integration/server.log
+          integration/server-ssl.log
+
+  test-macos-x64:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        rust: [stable]
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    - name: Environment
+      run: bin/environment.sh
+    - name: Install Rust
+      run: bin/install_rust_latest.sh
+    - name: Build
+      run: bin/release/release.sh
+    - name: Test Prerequisites
+      run: bin/test/test_prerequisites.sh
+    - name: Run Tests units
+      run: bin/test/test_unit.sh
+    - name: Run Integration Tests
+      run: bin/test/test_integ.sh
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v3
+      if: ${{ always() }}
+      with:
+        name: tests-macos-${{ matrix.rust }}-artifacts
+        path: |
+          integration/server.log
+          integration/server-ssl.log
+
+  test-windows-x64:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        rust: [stable]
+    env:
+      VCPKGRS_DYNAMIC: 1
+    steps:
+    - name: Set git to use LF
+      run: |
+        git config --global core.autocrlf false
+        git config --global core.eol lf       
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    - uses: actions/cache@v3
+      with:
+        path: |
+          C:\vcpkg\installed
+        key: ${{ runner.os }}-test-windows-x64-${{ github.sha }}
+        restore-keys: ${{ runner.os }}-test-windows-x64-
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        profile: minimal
+    - name: Environment
+      run: |
+        $Properties = 'Caption', 'CSName', 'Version', 'BuildType', 'OSArchitecture'
+        Get-CimInstance Win32_OperatingSystem | Select-Object $Properties | Format-Table -AutoSize
+        cargo --version
+        $PsVersionTable
+    - name: Install build and tests prequisites
+      run: |
+        # vcpkg build prequisites
+        (Get-Command vcpkg).Path
+        if (Test-Path C:\vcpkg\installed) {vcpkg update} else {vcpkg install libxml2:x64-windows}
+        vcpkg integrate install
+        # install proxy and server
+        pip3 install --requirement integration/requirements-frozen.txt
+    - name: Run Tests units
+      run: |
+        cd .\integration
+        Start-Job -Name mitmdump -ScriptBlock { mitmdump --listen-port 8888 --modify-header "/From-Proxy/Hello" }
+        Start-Job -Name server -ScriptBlock { python server.py > server.log }
+        Start-Job -Name server -ScriptBlock { python ssl/server.py > server-ssl.log }
+        Get-Job -Name server
+        Get-Job -Name mitmdump
+        Start-Sleep 5
+        cd ..
+        cargo test --features strict --tests
+    - name: Run Integration tests
+      run: |
+        cargo build --release --verbose --locked
+        target\release\hurl.exe --version
+        $execdir=[System.Environment]::SystemDirectory
+        Get-ChildItem -Path ".\target\release" -Recurse -Include *.dll -File | Copy-Item -Destination "${execdir}"
+        Get-ChildItem -Path ".\target\release" -Recurse -Include hurl*.exe -File | Copy-Item -Destination "${execdir}"
+        cd .\integration
+        Start-Job -Name mitmdump -ScriptBlock { mitmdump --listen-port 8888 --modify-header "/From-Proxy/Hello" }
+        Start-Job -Name server -ScriptBlock { python server.py > server.log }
+        Start-Job -Name server -ScriptBlock { python ssl/server.py > server-ssl.log }
+        Get-Job -Name server
+        Get-Job -Name mitmdump
+        Start-Sleep 5
+        python integration.py
+    - name: Archive production artifacts
+      uses: actions/upload-artifact@v3
+      if: ${{ always() }}
+      with:
+        name: tests-win64-${{ matrix.rust }}-artifacts
+        path: |
+          integration/server.log
+          integration/server-ssl.log
+

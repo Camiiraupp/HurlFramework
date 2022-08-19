@@ -1,0 +1,7 @@
+error: Invalid XPath expression
+  --> tests_failed/assert_query_invalid_xpath.hurl:4:7
+   |
+ 4 | xpath "//" equals 1
+   |       ^^^^ the XPath expression is not valid
+   |
+
